@@ -3,15 +3,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const header = document.querySelector(".site-header");
   const navToggle = document.querySelector(".nav-toggle");
   const navLinks = document.querySelectorAll(".nav-links a, .footer-links a, .hero-actions a, .brand");
+  const pageSections = document.querySelectorAll("main > section[id]");
 
   setupMobileNavbar(header, navToggle);
-  setupSmoothScroll(navLinks, header, navToggle);
+  setupSectionNavigation(navLinks, navToggle, pageSections);
   setupScrollReveal();
-  setupActiveNavigation();
   renderWasteChart();
   setupVideoSearch();
   setupEcoSearch();
   setupProductButtons();
+  setupTeamPhotos();
 });
 
 function setupMobileNavbar(header, navToggle) {
@@ -32,34 +33,72 @@ function setupMobileNavbar(header, navToggle) {
   });
 }
 
-function setupSmoothScroll(links, header, navToggle) {
+function setupSectionNavigation(links, navToggle, sections) {
+  if (!sections.length) return;
+
+  document.body.classList.add("section-mode");
+
+  const showSection = (hash, shouldUpdateHistory = true) => {
+    const targetId = hash?.startsWith("#") ? hash.slice(1) : hash;
+    const target = document.getElementById(targetId) || document.getElementById("home") || sections[0];
+
+    if (!target || !Array.from(sections).includes(target)) return;
+
+    sections.forEach((section) => {
+      const isActive = section === target;
+      section.classList.toggle("is-active-section", isActive);
+
+      if (isActive) {
+        section.removeAttribute("hidden");
+        revealActiveSection(section);
+      } else {
+        section.setAttribute("hidden", "");
+      }
+    });
+
+    updateActiveNavigation(target.id);
+    document.body.classList.remove("nav-open");
+
+    if (navToggle) {
+      navToggle.setAttribute("aria-expanded", "false");
+      navToggle.setAttribute("aria-label", "Buka menu navigasi");
+    }
+
+    window.scrollTo({ top: 0, behavior: shouldUpdateHistory ? "smooth" : "auto" });
+
+    const nextHash = `#${target.id}`;
+    if (shouldUpdateHistory && window.location.hash !== nextHash) {
+      history.pushState(null, "", nextHash);
+    }
+  };
+
   links.forEach((link) => {
     link.addEventListener("click", (event) => {
       const href = link.getAttribute("href");
       if (!href || !href.startsWith("#") || href === "#") return;
 
       const target = document.querySelector(href);
-      if (!target) return;
+      if (!target || !Array.from(sections).includes(target)) return;
 
       event.preventDefault();
-
-      const headerHeight = header ? header.offsetHeight : 0;
-      const targetPosition = target.getBoundingClientRect().top + window.scrollY - headerHeight + 2;
-
-      window.scrollTo({
-        top: targetPosition,
-        behavior: "smooth"
-      });
-
-      history.pushState(null, "", href);
-      document.body.classList.remove("nav-open");
-
-      if (navToggle) {
-        navToggle.setAttribute("aria-expanded", "false");
-        navToggle.setAttribute("aria-label", "Buka menu navigasi");
-      }
+      showSection(href);
     });
   });
+
+  window.addEventListener("popstate", () => {
+    showSection(window.location.hash || "#home", false);
+  });
+
+  showSection(window.location.hash || "#home", false);
+}
+
+function revealActiveSection(section) {
+  const revealItems = section.querySelectorAll(".reveal");
+  revealItems.forEach((item) => item.classList.add("is-visible"));
+
+  if (section.id === "plastic-facts") {
+    document.querySelector(".bar-chart")?.classList.add("is-visible");
+  }
 }
 
 function setupScrollReveal() {
@@ -97,27 +136,12 @@ function setupScrollReveal() {
   }
 }
 
-function setupActiveNavigation() {
-  const sections = document.querySelectorAll("main section[id]");
+function updateActiveNavigation(activeId) {
   const menuLinks = document.querySelectorAll(".nav-links a");
 
-  if (!("IntersectionObserver" in window)) return;
-
-  const sectionObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-
-      const activeId = entry.target.getAttribute("id");
-      menuLinks.forEach((link) => {
-        link.classList.toggle("active", link.getAttribute("href") === `#${activeId}`);
-      });
-    });
-  }, {
-    rootMargin: "-35% 0px -55% 0px",
-    threshold: 0
+  menuLinks.forEach((link) => {
+    link.classList.toggle("active", link.getAttribute("href") === `#${activeId}`);
   });
-
-  sections.forEach((section) => sectionObserver.observe(section));
 }
 
 function renderWasteChart() {
@@ -125,11 +149,14 @@ function renderWasteChart() {
   if (!chart) return;
 
   const wasteData = [
-    { label: "Sisa makanan", value: 41.8, color: "#45a66b" },
-    { label: "Plastik", value: 18.5, color: "#63b6d9" },
-    { label: "Kayu/ranting", value: 11.6, color: "#f7c948" },
-    { label: "Kertas/karton", value: 10.6, color: "#7abf78" },
-    { label: "Lainnya", value: 17.5, color: "#9fb7c8" }
+    { label: "Sisa makanan", value: 40.77, color: "#45a66b" },
+    { label: "Plastik", value: 20.52, color: "#63b6d9" },
+    { label: "Kayu/ranting", value: 13.13, color: "#f7c948" },
+    { label: "Kertas/karton", value: 11.4, color: "#7abf78" },
+    { label: "Logam", value: 3.11, color: "#b8a07e" },
+    { label: "Kain", value: 2.51, color: "#c9a0dc" },
+    { label: "Kaca", value: 2.39, color: "#8ecae6" },
+    { label: "Lainnya", value: 6.17, color: "#9fb7c8" }
   ];
 
   chart.innerHTML = wasteData.map((item) => {
@@ -211,5 +238,57 @@ function setupProductButtons() {
       const productName = button.dataset.product || "Produk";
       notice.textContent = `${productName} adalah contoh produk dummy ramah lingkungan.`;
     });
+  });
+}
+
+function setupTeamPhotos() {
+  const photos = document.querySelectorAll(".team-photo[data-photo-base]");
+  const extensions = [".jpg", ".jpeg", ".png", ".jfif", ".webp"];
+
+  photos.forEach((photo) => {
+    const basePath = photo.dataset.photoBase;
+    const fallback = photo.closest(".team-photo-wrap")?.querySelector(".avatar-fallback");
+    const directSource = photo.getAttribute("src");
+    const candidates = [
+      directSource,
+      ...extensions.map((extension) => basePath ? `${basePath}${extension}` : "")
+    ].filter(Boolean);
+    const uniqueCandidates = [...new Set(candidates)];
+    let attempt = 0;
+
+    const showPhoto = () => {
+      photo.hidden = false;
+      if (fallback) fallback.hidden = true;
+    };
+
+    const showFallback = () => {
+      photo.hidden = true;
+      if (fallback) fallback.hidden = false;
+    };
+
+    const tryNextPhoto = () => {
+      if (attempt >= uniqueCandidates.length) {
+        showFallback();
+        return;
+      }
+
+      showPhoto();
+      photo.src = uniqueCandidates[attempt];
+      attempt += 1;
+    };
+
+    photo.addEventListener("error", tryNextPhoto);
+    photo.addEventListener("load", showPhoto);
+
+    if (photo.complete) {
+      if (photo.naturalWidth > 0) {
+        showPhoto();
+      } else {
+        tryNextPhoto();
+      }
+      return;
+    }
+
+    showPhoto();
   });
 }

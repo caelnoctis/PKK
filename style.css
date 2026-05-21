@@ -38,6 +38,24 @@ body.nav-open {
   overflow: hidden;
 }
 
+body.section-mode {
+  min-height: 100svh;
+  overflow-x: hidden;
+}
+
+body.section-mode main {
+  min-height: calc(100svh - var(--header-height));
+}
+
+body.section-mode main > section {
+  display: none;
+}
+
+body.section-mode main > section.is-active-section {
+  display: block;
+  min-height: calc(100svh - var(--header-height));
+}
+
 img,
 iframe {
   max-width: 100%;
@@ -1048,43 +1066,88 @@ input {
 
 .about-layout {
   display: grid;
-  grid-template-columns: 0.78fr 1.22fr;
   gap: clamp(1.2rem, 4vw, 2rem);
   align-items: start;
 }
 
 .about-copy {
-  position: sticky;
-  top: calc(var(--header-height) + 24px);
+  max-width: 920px;
 }
 
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 
 .team-card {
-  padding: 1.2rem;
+  display: grid;
+  height: 100%;
+  align-content: start;
+  padding: 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.avatar {
-  display: inline-grid;
-  width: 58px;
-  height: 58px;
+.team-card:hover {
+  border-color: rgba(37, 114, 78, 0.26);
+  box-shadow: 0 24px 58px rgba(18, 63, 45, 0.15);
+  transform: translateY(-4px);
+}
+
+.team-card h3 {
+  margin-bottom: 0.35rem;
+}
+
+.team-photo-wrap {
+  display: grid;
+  width: 94px;
+  height: 94px;
   place-items: center;
   margin-bottom: 1rem;
-  color: var(--green-900);
+  overflow: hidden;
   background: var(--cream);
   border: 1px solid rgba(18, 63, 45, 0.12);
   border-radius: 50%;
+  box-shadow: 0 12px 28px rgba(18, 63, 45, 0.1);
+}
+
+.team-photo,
+.avatar-fallback {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+
+.team-photo {
+  display: block;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--green-900);
+  background:
+    linear-gradient(135deg, rgba(247, 201, 72, 0.62), rgba(231, 247, 233, 0.9)),
+    var(--cream);
+  font-size: 1.3rem;
   font-weight: 900;
 }
 
-.role {
-  margin-bottom: 0.6rem;
+.team-photo[hidden],
+.avatar-fallback[hidden] {
+  display: none;
+}
+
+.team-npm {
+  margin: 0 0 0.8rem;
   color: var(--green-700) !important;
+  font-size: 0.92rem;
   font-weight: 900;
+}
+
+.team-opinion {
+  font-size: 0.96rem;
 }
 
 .site-footer {
@@ -1165,12 +1228,12 @@ input {
 
 @media (max-width: 1040px) {
   .goal-grid,
-  .product-grid {
+  .product-grid,
+  .team-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .fact-layout,
-  .about-layout {
+  .fact-layout {
     grid-template-columns: 1fr;
   }
 
