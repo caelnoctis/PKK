@@ -14,6 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupProductButtons();
   setupTeamPhotos();
   setupPhotobooth();
+  setupHeroParticles();
+  setupHeroCounters();
 });
 
 function setupMobileNavbar(header, navToggle) {
@@ -26,7 +28,7 @@ function setupMobileNavbar(header, navToggle) {
   });
 
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 1100) {
+    if (window.innerWidth > 1200) {
       document.body.classList.remove("nav-open");
       navToggle.setAttribute("aria-expanded", "false");
       navToggle.setAttribute("aria-label", "Buka menu navigasi");
@@ -849,4 +851,186 @@ function setupTeamPhotos() {
 
     showPhoto();
   });
+}
+
+function setupHeroParticles() {
+  const canvas = document.getElementById("heroParticles");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const particles = [];
+  const particleCount = Math.min(35, Math.floor(window.innerWidth / 40));
+
+  const resizeCanvas = () => {
+    const heroSection = canvas.closest(".hero");
+    if (!heroSection) return;
+    canvas.width = heroSection.offsetWidth;
+    canvas.height = heroSection.offsetHeight;
+  };
+
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  const particleTypes = ["leaf", "pollen", "sparkle"];
+
+  const createParticle = () => {
+    const type = particleTypes[Math.floor(Math.random() * particleTypes.length)];
+    return {
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: type === "leaf" ? 4 + Math.random() * 6 : type === "pollen" ? 2 + Math.random() * 3 : 1.5 + Math.random() * 2,
+      speedX: (Math.random() - 0.5) * 0.4,
+      speedY: -0.15 - Math.random() * 0.3,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.015,
+      opacity: 0.15 + Math.random() * 0.35,
+      type,
+      color: type === "leaf"
+        ? `hsla(${130 + Math.random() * 30}, ${55 + Math.random() * 25}%, ${40 + Math.random() * 20}%, `
+        : type === "pollen"
+          ? `hsla(${45 + Math.random() * 15}, ${80 + Math.random() * 15}%, ${60 + Math.random() * 15}%, `
+          : `hsla(${160 + Math.random() * 60}, ${50 + Math.random() * 30}%, ${70 + Math.random() * 20}%, `,
+      sway: Math.random() * Math.PI * 2,
+      swaySpeed: 0.008 + Math.random() * 0.012,
+      swayAmount: 0.3 + Math.random() * 0.6
+    };
+  };
+
+  for (let i = 0; i < particleCount; i++) {
+    particles.push(createParticle());
+  }
+
+  const drawLeaf = (p) => {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation);
+    ctx.fillStyle = p.color + p.opacity + ")";
+    ctx.beginPath();
+    ctx.moveTo(0, -p.size);
+    ctx.bezierCurveTo(p.size * 0.6, -p.size * 0.3, p.size * 0.5, p.size * 0.3, 0, p.size);
+    ctx.bezierCurveTo(-p.size * 0.5, p.size * 0.3, -p.size * 0.6, -p.size * 0.3, 0, -p.size);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const drawPollen = (p) => {
+    ctx.save();
+    ctx.fillStyle = p.color + p.opacity + ")";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = p.color + (p.opacity * 0.3) + ")";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const drawSparkle = (p) => {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation);
+    ctx.strokeStyle = p.color + p.opacity + ")";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -p.size * 1.5);
+    ctx.lineTo(0, p.size * 1.5);
+    ctx.moveTo(-p.size * 1.5, 0);
+    ctx.lineTo(p.size * 1.5, 0);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  let animationId;
+
+  const animate = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach((p) => {
+      p.sway += p.swaySpeed;
+      p.x += p.speedX + Math.sin(p.sway) * p.swayAmount;
+      p.y += p.speedY;
+      p.rotation += p.rotationSpeed;
+
+      if (p.y < -20) p.y = canvas.height + 20;
+      if (p.y > canvas.height + 20) p.y = -20;
+      if (p.x < -20) p.x = canvas.width + 20;
+      if (p.x > canvas.width + 20) p.x = -20;
+
+      if (p.type === "leaf") drawLeaf(p);
+      else if (p.type === "pollen") drawPollen(p);
+      else drawSparkle(p);
+    });
+
+    animationId = requestAnimationFrame(animate);
+  };
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!prefersReducedMotion) {
+    animate();
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      cancelAnimationFrame(animationId);
+    } else if (!prefersReducedMotion) {
+      animate();
+    }
+  });
+}
+
+function setupHeroCounters() {
+  const counters = document.querySelectorAll(".hero-stat-num[data-count]");
+  if (!counters.length) return;
+
+  const animateCounter = (element) => {
+    const target = parseInt(element.dataset.count, 10);
+    if (isNaN(target)) return;
+
+    const duration = 2000;
+    const startTime = performance.now();
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+    const update = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOutCubic(progress);
+      const current = Math.round(easedProgress * target);
+
+      element.textContent = current;
+
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      }
+    };
+
+    requestAnimationFrame(update);
+  };
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (prefersReducedMotion) {
+    counters.forEach((counter) => {
+      counter.textContent = counter.dataset.count;
+    });
+    return;
+  }
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          animateCounter(entry.target);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    counters.forEach((counter) => observer.observe(counter));
+  } else {
+    counters.forEach((counter) => animateCounter(counter));
+  }
 }
