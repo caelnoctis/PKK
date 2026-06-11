@@ -2,7 +2,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const header = document.querySelector(".site-header");
   const navToggle = document.querySelector(".nav-toggle");
-  const navLinks = document.querySelectorAll(".nav-links a, .footer-links a, .hero-actions a, .brand");
+  const navLinks = document.querySelectorAll('a[href^="#"]');
   const pageSections = document.querySelectorAll("main > section[id]");
 
   setupMobileNavbar(header, navToggle);
@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEcoSearch();
   setupProductButtons();
   setupTeamPhotos();
+  setupPhotobooth();
 });
 
 function setupMobileNavbar(header, navToggle) {
@@ -25,7 +26,7 @@ function setupMobileNavbar(header, navToggle) {
   });
 
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 860) {
+    if (window.innerWidth > 1100) {
       document.body.classList.remove("nav-open");
       navToggle.setAttribute("aria-expanded", "false");
       navToggle.setAttribute("aria-label", "Buka menu navigasi");
@@ -236,9 +237,556 @@ function setupProductButtons() {
   buttons.forEach((button) => {
     button.addEventListener("click", () => {
       const productName = button.dataset.product || "Produk";
-      notice.textContent = `${productName} adalah contoh produk dummy ramah lingkungan.`;
+      notice.textContent = `${productName} dibuat dari rajutan tangan yang reusable, ringan, dan cocok untuk membawa tumbler tanpa kantong plastik sekali pakai.`;
     });
   });
+}
+
+function setupPhotobooth() {
+  const video = document.getElementById("photoboothVideo");
+  const cameraStage = video?.closest(".camera-stage");
+  const startButton = document.getElementById("startCameraBtn");
+  const captureButton = document.getElementById("capturePhotoBtn");
+  const resetButton = document.getElementById("resetPhotosBtn");
+  const downloadButton = document.getElementById("downloadBoothBtn");
+  const status = document.getElementById("photoboothStatus");
+  const canvas = document.getElementById("photoboothCanvas");
+  const photoSlots = document.getElementById("photoSlots");
+
+  if (!video || !cameraStage || !startButton || !captureButton || !resetButton || !downloadButton || !status || !canvas || !photoSlots) return;
+
+  const context = canvas.getContext("2d");
+  if (!context) return;
+
+  const layouts = {
+    "3x1": { label: "3x1", rows: 3, cols: 1, count: 3, width: 900, height: 1800 },
+    "2x2": { label: "2x2", rows: 2, cols: 2, count: 4, width: 1400, height: 1600 },
+    "3x2": { label: "3x2", rows: 3, cols: 2, count: 6, width: 1400, height: 1900 }
+  };
+
+  const themes = {
+    garden: {
+      bg: "#e7f7e9",
+      bg2: "#fff4d6",
+      border: "#25724e",
+      accent: "#f7c948",
+      soft: "#ffffff",
+      sticker: "#45a66b",
+      ink: "#123f2d"
+    },
+    candy: {
+      bg: "#fff0f5",
+      bg2: "#dff3ff",
+      border: "#ef709d",
+      accent: "#f7c948",
+      soft: "#ffffff",
+      sticker: "#ff8fab",
+      ink: "#3d2634"
+    },
+    ocean: {
+      bg: "#dff3ff",
+      bg2: "#e7f7e9",
+      border: "#2f86a6",
+      accent: "#f7c948",
+      soft: "#ffffff",
+      sticker: "#63b6d9",
+      ink: "#123f2d"
+    }
+  };
+
+  let cameraStream = null;
+  let capturedPhotos = [];
+
+  const getLayout = () => {
+    const checked = document.querySelector('input[name="boothLayout"]:checked');
+    return layouts[checked?.value] || layouts["3x1"];
+  };
+
+  const getTheme = () => {
+    const checked = document.querySelector('input[name="boothFrame"]:checked');
+    return themes[checked?.value] || themes.garden;
+  };
+
+  const getStickerPacks = () => {
+    return Array.from(document.querySelectorAll(".sticker-check input:checked"))
+      .map((input) => input.dataset.sticker)
+      .filter(Boolean);
+  };
+
+  const setStatus = (message, type = "") => {
+    status.textContent = message;
+    status.className = type ? `photobooth-status ${type}` : "photobooth-status";
+  };
+
+  const updateButtons = () => {
+    const layout = getLayout();
+    captureButton.disabled = !cameraStream || capturedPhotos.length >= layout.count;
+    downloadButton.disabled = capturedPhotos.length === 0;
+  };
+
+  const updateSlots = () => {
+    const layout = getLayout();
+    photoSlots.innerHTML = Array.from({ length: layout.count }, (_, index) => {
+      const filledClass = index < capturedPhotos.length ? " is-filled" : "";
+      return `<span class="photo-slot${filledClass}">${index + 1}</span>`;
+    }).join("");
+  };
+
+  const refreshBooth = () => {
+    const layout = getLayout();
+    if (capturedPhotos.length > layout.count) {
+      capturedPhotos = capturedPhotos.slice(0, layout.count);
+    }
+
+    renderPhotoboothCanvas(context, canvas, layout, getTheme(), getStickerPacks(), capturedPhotos);
+    updateSlots();
+    updateButtons();
+  };
+
+  const stopCamera = () => {
+    if (!cameraStream) return;
+
+    cameraStream.getTracks().forEach((track) => track.stop());
+    cameraStream = null;
+    video.srcObject = null;
+    cameraStage.classList.remove("is-camera-on");
+    startButton.textContent = "Nyalakan Kamera";
+    setStatus("Kamera dimatikan.");
+    updateButtons();
+  };
+
+  const startCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus("Browser ini belum mendukung akses kamera.", "error");
+      return;
+    }
+
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 960 }
+        },
+        audio: false
+      });
+
+      video.srcObject = cameraStream;
+      await video.play();
+      cameraStage.classList.add("is-camera-on");
+      startButton.textContent = "Matikan Kamera";
+
+      const layout = getLayout();
+      setStatus(`Kamera aktif. Foto ${capturedPhotos.length + 1}/${layout.count} siap diambil.`, "success");
+      updateButtons();
+    } catch (error) {
+      setStatus("Kamera tidak bisa diakses. Izinkan kamera di browser, lalu coba lagi.", "error");
+      updateButtons();
+    }
+  };
+
+  const capturePhoto = () => {
+    const layout = getLayout();
+
+    if (!cameraStream || !video.videoWidth || !video.videoHeight) {
+      setStatus("Nyalakan kamera dulu sebelum ambil foto.", "error");
+      return;
+    }
+
+    if (capturedPhotos.length >= layout.count) {
+      setStatus(`Layout ${layout.label} sudah penuh. Reset untuk mulai lagi.`, "success");
+      updateButtons();
+      return;
+    }
+
+    const shotCanvas = document.createElement("canvas");
+    const shotContext = shotCanvas.getContext("2d");
+    if (!shotContext) return;
+
+    shotCanvas.width = video.videoWidth;
+    shotCanvas.height = video.videoHeight;
+    shotContext.translate(shotCanvas.width, 0);
+    shotContext.scale(-1, 1);
+    shotContext.drawImage(video, 0, 0, shotCanvas.width, shotCanvas.height);
+
+    const photo = new Image();
+    photo.onload = () => {
+      capturedPhotos.push(photo);
+      refreshBooth();
+
+      const nextNumber = Math.min(capturedPhotos.length + 1, layout.count);
+      const complete = capturedPhotos.length >= layout.count;
+      setStatus(
+        complete ? `Layout ${layout.label} lengkap dan siap di-download.` : `Foto ${nextNumber}/${layout.count} siap diambil.`,
+        complete ? "success" : ""
+      );
+    };
+    photo.src = shotCanvas.toDataURL("image/png");
+  };
+
+  startButton.addEventListener("click", () => {
+    if (cameraStream) {
+      stopCamera();
+      return;
+    }
+
+    startCamera();
+  });
+
+  captureButton.addEventListener("click", capturePhoto);
+
+  resetButton.addEventListener("click", () => {
+    capturedPhotos = [];
+    refreshBooth();
+    const layout = getLayout();
+    setStatus(cameraStream ? `Foto 1/${layout.count} siap diambil.` : "Pilih layout dan nyalakan kamera.");
+  });
+
+  downloadButton.addEventListener("click", () => {
+    if (!capturedPhotos.length) return;
+
+    const link = document.createElement("a");
+    link.download = `cup-holder-strap-photobooth-${getLayout().label}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    setStatus("Hasil photobooth berhasil disiapkan untuk di-download.", "success");
+  });
+
+  document.querySelectorAll('input[name="boothLayout"], input[name="boothFrame"], .sticker-check input').forEach((input) => {
+    input.addEventListener("change", () => {
+      refreshBooth();
+      const layout = getLayout();
+      setStatus(`${capturedPhotos.length}/${layout.count} foto terpasang di layout ${layout.label}.`);
+    });
+  });
+
+  refreshBooth();
+}
+
+function renderPhotoboothCanvas(context, canvas, layout, theme, stickerPacks, photos) {
+  canvas.width = layout.width;
+  canvas.height = layout.height;
+
+  drawBoothBackground(context, canvas.width, canvas.height, theme, layout);
+
+  const margin = layout.cols === 1 ? 76 : 66;
+  const headerHeight = layout.cols === 1 ? 150 : 132;
+  const footerHeight = layout.cols === 1 ? 130 : 118;
+  const gap = layout.cols === 1 ? 34 : 32;
+  const usableWidth = canvas.width - margin * 2 - gap * (layout.cols - 1);
+  const usableHeight = canvas.height - margin * 2 - headerHeight - footerHeight - gap * (layout.rows - 1);
+  const cardWidth = usableWidth / layout.cols;
+  const cardHeight = usableHeight / layout.rows;
+
+  context.save();
+  context.fillStyle = theme.ink;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `900 ${layout.cols === 1 ? 46 : 50}px Inter, Arial, sans-serif`;
+  context.fillText("Cup Holder Strap Booth", canvas.width / 2, margin + 36);
+  context.font = `800 ${layout.cols === 1 ? 24 : 26}px Inter, Arial, sans-serif`;
+  context.fillStyle = "rgba(18, 63, 45, 0.72)";
+  context.fillText(`${layout.label} Polaroid Layout`, canvas.width / 2, margin + 82);
+  context.restore();
+
+  for (let index = 0; index < layout.count; index += 1) {
+    const col = index % layout.cols;
+    const row = Math.floor(index / layout.cols);
+    const x = margin + col * (cardWidth + gap);
+    const y = margin + headerHeight + row * (cardHeight + gap);
+
+    drawPolaroidCard(context, x, y, cardWidth, cardHeight, photos[index], index, theme);
+  }
+
+  drawBoothStickers(context, canvas.width, canvas.height, theme, stickerPacks);
+
+  context.save();
+  context.fillStyle = "rgba(18, 63, 45, 0.78)";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `800 ${layout.cols === 1 ? 24 : 25}px Inter, Arial, sans-serif`;
+  context.fillText("Less plastic, more cute moments", canvas.width / 2, canvas.height - margin + 10);
+  context.restore();
+}
+
+function drawBoothBackground(context, width, height, theme, layout) {
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, theme.bg);
+  gradient.addColorStop(0.58, "#ffffff");
+  gradient.addColorStop(1, theme.bg2);
+
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+
+  context.save();
+  context.globalAlpha = 0.42;
+  context.fillStyle = theme.accent;
+
+  const dotSize = layout.cols === 1 ? 9 : 10;
+  const spacing = layout.cols === 1 ? 86 : 96;
+  for (let y = 40; y < height; y += spacing) {
+    for (let x = 38; x < width; x += spacing) {
+      context.beginPath();
+      context.arc(x, y, dotSize, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+  context.restore();
+
+  context.save();
+  context.lineWidth = layout.cols === 1 ? 18 : 20;
+  context.strokeStyle = theme.border;
+  roundedRectPath(context, 24, 24, width - 48, height - 48, 34);
+  context.stroke();
+  context.lineWidth = 5;
+  context.strokeStyle = "rgba(255, 255, 255, 0.82)";
+  roundedRectPath(context, 48, 48, width - 96, height - 96, 26);
+  context.stroke();
+  context.restore();
+}
+
+function drawPolaroidCard(context, x, y, width, height, photo, index, theme) {
+  const radius = Math.min(24, width * 0.05);
+  const pad = Math.max(18, width * 0.052);
+  const bottomPad = Math.max(58, height * 0.16);
+  const photoX = x + pad;
+  const photoY = y + pad;
+  const photoWidth = width - pad * 2;
+  const photoHeight = height - pad * 2 - bottomPad;
+
+  context.save();
+  context.shadowColor = "rgba(18, 63, 45, 0.2)";
+  context.shadowBlur = 24;
+  context.shadowOffsetY = 12;
+  context.fillStyle = "#ffffff";
+  roundedRectPath(context, x, y, width, height, radius);
+  context.fill();
+  context.restore();
+
+  context.save();
+  roundedRectPath(context, photoX, photoY, photoWidth, photoHeight, 14);
+  context.clip();
+
+  if (photo) {
+    drawImageCover(context, photo, photoX, photoY, photoWidth, photoHeight);
+  } else {
+    const placeholderGradient = context.createLinearGradient(photoX, photoY, photoX + photoWidth, photoY + photoHeight);
+    placeholderGradient.addColorStop(0, theme.bg);
+    placeholderGradient.addColorStop(1, theme.bg2);
+    context.fillStyle = placeholderGradient;
+    context.fillRect(photoX, photoY, photoWidth, photoHeight);
+    context.fillStyle = "rgba(255, 255, 255, 0.62)";
+    context.fillRect(photoX + photoWidth * 0.1, photoY + photoHeight * 0.42, photoWidth * 0.8, photoHeight * 0.16);
+  }
+  context.restore();
+
+  context.save();
+  context.lineWidth = 5;
+  context.strokeStyle = "rgba(18, 63, 45, 0.08)";
+  roundedRectPath(context, photoX, photoY, photoWidth, photoHeight, 14);
+  context.stroke();
+
+  context.fillStyle = theme.ink;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `900 ${Math.max(20, Math.min(30, width * 0.058))}px Inter, Arial, sans-serif`;
+  context.fillText(photo ? `SNAP ${String(index + 1).padStart(2, "0")}` : `FOTO ${index + 1}`, x + width / 2, y + height - bottomPad / 2);
+  context.restore();
+}
+
+function drawBoothStickers(context, width, height, theme, stickerPacks) {
+  drawWashiTape(context, 74, 66, 140, 42, -0.18, theme.accent);
+  drawWashiTape(context, width - 214, 66, 140, 42, 0.18, theme.sticker);
+  drawWashiTape(context, 70, height - 112, 150, 42, 0.16, theme.sticker);
+  drawWashiTape(context, width - 220, height - 112, 150, 42, -0.16, theme.accent);
+
+  if (stickerPacks.includes("eco")) {
+    drawLeafSticker(context, 112, 178, 42, theme.sticker, theme.ink);
+    drawLeafSticker(context, width - 116, height - 190, 46, theme.border, theme.ink);
+    drawStickerPill(context, width - 330, 144, 214, 58, "REUSE", theme.bg, theme.ink);
+    drawStickerPill(context, 98, height - 202, 244, 58, "LESS PLASTIC", theme.bg2, theme.ink);
+  }
+
+  if (stickerPacks.includes("sweet")) {
+    drawFlowerSticker(context, width - 118, 198, 36, theme.accent, theme.sticker, theme.ink);
+    drawFlowerSticker(context, 126, height - 252, 34, theme.sticker, theme.accent, theme.ink);
+    drawHeartSticker(context, 102, 265, 34, theme.sticker);
+    drawHeartSticker(context, width - 95, height - 288, 32, theme.accent);
+  }
+
+  if (stickerPacks.includes("spark")) {
+    drawSparkle(context, 82, 112, 28, theme.ink);
+    drawSparkle(context, width - 82, 124, 30, theme.ink);
+    drawSparkle(context, width - 120, height - 178, 28, theme.ink);
+    drawWaveSticker(context, width / 2 - 84, height - 96, 168, theme.border);
+  }
+}
+
+function drawImageCover(context, image, x, y, width, height) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  const sourceRatio = sourceWidth / sourceHeight;
+  const targetRatio = width / height;
+
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+  let cropX = 0;
+  let cropY = 0;
+
+  if (sourceRatio > targetRatio) {
+    cropWidth = sourceHeight * targetRatio;
+    cropX = (sourceWidth - cropWidth) / 2;
+  } else {
+    cropHeight = sourceWidth / targetRatio;
+    cropY = (sourceHeight - cropHeight) / 2;
+  }
+
+  context.drawImage(image, cropX, cropY, cropWidth, cropHeight, x, y, width, height);
+}
+
+function roundedRectPath(context, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.lineTo(x + width - r, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + r);
+  context.lineTo(x + width, y + height - r);
+  context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  context.lineTo(x + r, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - r);
+  context.lineTo(x, y + r);
+  context.quadraticCurveTo(x, y, x + r, y);
+  context.closePath();
+}
+
+function drawStickerPill(context, x, y, width, height, text, fill, ink) {
+  context.save();
+  context.fillStyle = fill;
+  context.strokeStyle = "rgba(18, 63, 45, 0.2)";
+  context.lineWidth = 4;
+  roundedRectPath(context, x, y, width, height, height / 2);
+  context.fill();
+  context.stroke();
+  context.fillStyle = ink;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = "900 25px Inter, Arial, sans-serif";
+  context.fillText(text, x + width / 2, y + height / 2 + 1);
+  context.restore();
+}
+
+function drawWashiTape(context, x, y, width, height, angle, fill) {
+  context.save();
+  context.translate(x + width / 2, y + height / 2);
+  context.rotate(angle);
+  context.globalAlpha = 0.82;
+  context.fillStyle = fill;
+  roundedRectPath(context, -width / 2, -height / 2, width, height, 10);
+  context.fill();
+  context.globalAlpha = 0.24;
+  context.fillStyle = "#ffffff";
+  for (let i = -width / 2; i < width / 2; i += 24) {
+    context.fillRect(i, -height / 2, 9, height);
+  }
+  context.restore();
+}
+
+function drawLeafSticker(context, x, y, size, fill, stroke) {
+  context.save();
+  context.translate(x, y);
+  context.rotate(-0.35);
+  context.fillStyle = fill;
+  context.strokeStyle = stroke;
+  context.lineWidth = 4;
+  context.beginPath();
+  context.moveTo(0, -size);
+  context.bezierCurveTo(size * 0.9, -size * 0.58, size * 0.82, size * 0.48, 0, size);
+  context.bezierCurveTo(-size * 0.9, size * 0.45, -size * 0.8, -size * 0.6, 0, -size);
+  context.fill();
+  context.stroke();
+  context.beginPath();
+  context.moveTo(0, -size * 0.72);
+  context.lineTo(0, size * 0.72);
+  context.stroke();
+  context.restore();
+}
+
+function drawFlowerSticker(context, x, y, size, petalFill, centerFill, stroke) {
+  context.save();
+  context.translate(x, y);
+  context.fillStyle = petalFill;
+  context.strokeStyle = stroke;
+  context.lineWidth = 3;
+
+  for (let i = 0; i < 6; i += 1) {
+    context.rotate(Math.PI / 3);
+    context.beginPath();
+    context.ellipse(0, -size * 0.72, size * 0.36, size * 0.58, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  }
+
+  context.fillStyle = centerFill;
+  context.beginPath();
+  context.arc(0, 0, size * 0.36, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.restore();
+}
+
+function drawHeartSticker(context, x, y, size, fill) {
+  context.save();
+  context.translate(x, y);
+  context.fillStyle = fill;
+  context.strokeStyle = "rgba(18, 63, 45, 0.2)";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(0, size * 0.45);
+  context.bezierCurveTo(-size, -size * 0.18, -size * 0.52, -size * 0.86, 0, -size * 0.38);
+  context.bezierCurveTo(size * 0.52, -size * 0.86, size, -size * 0.18, 0, size * 0.45);
+  context.fill();
+  context.stroke();
+  context.restore();
+}
+
+function drawSparkle(context, x, y, size, stroke) {
+  context.save();
+  context.strokeStyle = stroke;
+  context.lineWidth = 5;
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(x, y - size);
+  context.lineTo(x, y + size);
+  context.moveTo(x - size, y);
+  context.lineTo(x + size, y);
+  context.moveTo(x - size * 0.58, y - size * 0.58);
+  context.lineTo(x + size * 0.58, y + size * 0.58);
+  context.moveTo(x + size * 0.58, y - size * 0.58);
+  context.lineTo(x - size * 0.58, y + size * 0.58);
+  context.stroke();
+  context.restore();
+}
+
+function drawWaveSticker(context, x, y, width, stroke) {
+  context.save();
+  context.strokeStyle = stroke;
+  context.lineWidth = 8;
+  context.lineCap = "round";
+  context.beginPath();
+
+  for (let i = 0; i <= 6; i += 1) {
+    const nextX = x + (width / 6) * i;
+    const nextY = y + (i % 2 === 0 ? -12 : 12);
+    if (i === 0) {
+      context.moveTo(nextX, nextY);
+    } else {
+      context.lineTo(nextX, nextY);
+    }
+  }
+
+  context.stroke();
+  context.restore();
 }
 
 function setupTeamPhotos() {
