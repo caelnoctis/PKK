@@ -324,6 +324,22 @@ function setupPhotobooth() {
     downloadButton.disabled = capturedPhotos.length === 0;
   };
 
+  const updateCameraAspectRatio = () => {
+    if (!cameraStream || !video.videoWidth || !video.videoHeight) return;
+
+    cameraStage.style.setProperty("--camera-aspect-ratio", `${video.videoWidth} / ${video.videoHeight}`);
+  };
+
+  const getCameraVideoConstraints = () => {
+    const isPortraitViewport = window.matchMedia?.("(orientation: portrait)").matches && window.innerWidth <= 860;
+
+    return {
+      facingMode: "user",
+      width: { ideal: isPortraitViewport ? 960 : 1280 },
+      height: { ideal: isPortraitViewport ? 1280 : 960 }
+    };
+  };
+
   const updateSlots = () => {
     const layout = getLayout();
     photoSlots.innerHTML = Array.from({ length: layout.count }, (_, index) => {
@@ -350,6 +366,7 @@ function setupPhotobooth() {
     cameraStream = null;
     video.srcObject = null;
     cameraStage.classList.remove("is-camera-on");
+    cameraStage.style.removeProperty("--camera-aspect-ratio");
     startButton.textContent = "Nyalakan Kamera";
     setStatus("Kamera dimatikan.");
     updateButtons();
@@ -363,16 +380,13 @@ function setupPhotobooth() {
 
     try {
       cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 1280 },
-          height: { ideal: 960 }
-        },
+        video: getCameraVideoConstraints(),
         audio: false
       });
 
       video.srcObject = cameraStream;
       await video.play();
+      updateCameraAspectRatio();
       cameraStage.classList.add("is-camera-on");
       startButton.textContent = "Matikan Kamera";
 
@@ -434,6 +448,8 @@ function setupPhotobooth() {
   });
 
   captureButton.addEventListener("click", capturePhoto);
+  video.addEventListener("loadedmetadata", updateCameraAspectRatio);
+  window.addEventListener("resize", updateCameraAspectRatio);
 
   resetButton.addEventListener("click", () => {
     capturedPhotos = [];
@@ -568,7 +584,7 @@ function drawPolaroidCard(context, x, y, width, height, photo, index, theme) {
   context.clip();
 
   if (photo) {
-    drawImageCover(context, photo, photoX, photoY, photoWidth, photoHeight);
+    drawImageContain(context, photo, photoX, photoY, photoWidth, photoHeight, theme);
   } else {
     const placeholderGradient = context.createLinearGradient(photoX, photoY, photoX + photoWidth, photoY + photoHeight);
     placeholderGradient.addColorStop(0, theme.bg);
@@ -622,26 +638,20 @@ function drawBoothStickers(context, width, height, theme, stickerPacks) {
   }
 }
 
-function drawImageCover(context, image, x, y, width, height) {
+function drawImageContain(context, image, x, y, width, height, theme) {
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
-  const sourceRatio = sourceWidth / sourceHeight;
-  const targetRatio = width / height;
 
-  let cropWidth = sourceWidth;
-  let cropHeight = sourceHeight;
-  let cropX = 0;
-  let cropY = 0;
+  context.fillStyle = theme.soft || "#ffffff";
+  context.fillRect(x, y, width, height);
 
-  if (sourceRatio > targetRatio) {
-    cropWidth = sourceHeight * targetRatio;
-    cropX = (sourceWidth - cropWidth) / 2;
-  } else {
-    cropHeight = sourceWidth / targetRatio;
-    cropY = (sourceHeight - cropHeight) / 2;
-  }
+  const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
 
-  context.drawImage(image, cropX, cropY, cropWidth, cropHeight, x, y, width, height);
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 }
 
 function roundedRectPath(context, x, y, width, height, radius) {
