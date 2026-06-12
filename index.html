@@ -519,27 +519,37 @@
       <div class="container">
         <div class="section-intro reveal">
           <p class="section-kicker">Photobooth</p>
-          <h2 id="photobooth-title">Ambil foto polaroid dengan frame dan sticker kreatif.</h2>
+          <h2 id="photobooth-title">Abadikan momen hijaumu dengan polaroid eco-art.</h2>
           <p>
-            Pilih layout, nyalakan kamera, ambil beberapa pose, lalu unduh hasil photobooth
-            yang sudah diberi frame lucu.
+            Pilih frame dengan gaya berbeda, nyalakan kamera, dan unduh hasil polaroid
+            bertema lingkungan yang unik dan siap dibagikan.
           </p>
         </div>
 
         <div class="photobooth-app reveal">
           <div class="camera-panel">
-            <div class="camera-stage">
+            <div class="camera-stage" id="cameraStage">
               <video id="photoboothVideo" autoplay playsinline muted></video>
-              <div class="camera-placeholder" id="cameraPlaceholder">Camera Preview</div>
+              <div class="camera-overlay" id="cameraOverlay" aria-hidden="true"></div>
+              <div class="camera-placeholder" id="cameraPlaceholder">
+                <span class="camera-icon">📷</span>
+                <span>Nyalakan kamera untuk melihat preview</span>
+              </div>
             </div>
 
             <div class="capture-toolbar">
-              <button class="btn btn-primary" id="startCameraBtn" type="button">Nyalakan Kamera</button>
-              <button class="btn btn-secondary" id="capturePhotoBtn" type="button" disabled>Ambil Foto</button>
-              <button class="btn btn-secondary" id="resetPhotosBtn" type="button">Reset</button>
+              <button class="btn btn-primary" id="startCameraBtn" type="button">
+                📷 Nyalakan Kamera
+              </button>
+              <button class="btn btn-capture" id="capturePhotoBtn" type="button" disabled>
+                📸 Ambil Foto
+              </button>
+              <button class="btn btn-secondary" id="resetPhotosBtn" type="button">
+                🔄 Reset
+              </button>
             </div>
 
-            <p class="photobooth-status" id="photoboothStatus" aria-live="polite">Pilih layout dan nyalakan kamera.</p>
+            <p class="photobooth-status" id="photoboothStatus" aria-live="polite">Pilih frame & layout, lalu nyalakan kamera.</p>
           </div>
 
           <div class="booth-controls" aria-label="Pengaturan photobooth">
@@ -549,56 +559,71 @@
                 <label class="layout-option">
                   <input type="radio" name="boothLayout" value="3x1" checked>
                   <span class="layout-preview layout-3x1" aria-hidden="true"><i></i><i></i><i></i></span>
-                  <strong>3x1</strong>
+                  <strong>Strip 3</strong>
                 </label>
                 <label class="layout-option">
                   <input type="radio" name="boothLayout" value="2x2">
                   <span class="layout-preview layout-2x2" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                  <strong>2x2</strong>
+                  <strong>Grid 2×2</strong>
                 </label>
                 <label class="layout-option">
                   <input type="radio" name="boothLayout" value="3x2">
                   <span class="layout-preview layout-3x2" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
-                  <strong>3x2</strong>
+                  <strong>Grid 3×2</strong>
                 </label>
               </div>
             </div>
 
             <div class="control-block">
-              <h3>Frame</h3>
+              <h3>Frame Style</h3>
               <div class="frame-options" role="radiogroup" aria-label="Pilihan frame photobooth">
-                <label class="frame-option garden-frame">
-                  <input type="radio" name="boothFrame" value="garden" checked>
-                  <span class="frame-swatch"></span>
-                  <strong>Garden Pop</strong>
+                <label class="frame-option frame-nature">
+                  <input type="radio" name="boothFrame" value="nature" checked>
+                  <span class="frame-swatch">
+                    <span class="frame-preview-art nature-art" aria-hidden="true"></span>
+                  </span>
+                  <div class="frame-label">
+                    <strong>Nature Vines</strong>
+                    <span>Sulur & daun hijau</span>
+                  </div>
                 </label>
-                <label class="frame-option candy-frame">
-                  <input type="radio" name="boothFrame" value="candy">
-                  <span class="frame-swatch"></span>
-                  <strong>Candy Bloom</strong>
+                <label class="frame-option frame-sunset">
+                  <input type="radio" name="boothFrame" value="sunset">
+                  <span class="frame-swatch">
+                    <span class="frame-preview-art sunset-art" aria-hidden="true"></span>
+                  </span>
+                  <div class="frame-label">
+                    <strong>Sunset Craft</strong>
+                    <span>Matahari & bunga</span>
+                  </div>
                 </label>
-                <label class="frame-option ocean-frame">
+                <label class="frame-option frame-ocean">
                   <input type="radio" name="boothFrame" value="ocean">
-                  <span class="frame-swatch"></span>
-                  <strong>Ocean Joy</strong>
+                  <span class="frame-swatch">
+                    <span class="frame-preview-art ocean-art" aria-hidden="true"></span>
+                  </span>
+                  <div class="frame-label">
+                    <strong>Ocean Drift</strong>
+                    <span>Gelombang & terumbu</span>
+                  </div>
                 </label>
               </div>
             </div>
 
             <div class="control-block">
-              <h3>Sticker</h3>
+              <h3>Stiker Dekorasi</h3>
               <div class="sticker-options">
                 <label class="sticker-check">
                   <input type="checkbox" id="stickerEco" data-sticker="eco" checked>
-                  <span>Eco Notes</span>
+                  <span>🌿 Eco Tags</span>
                 </label>
                 <label class="sticker-check">
                   <input type="checkbox" id="stickerSweet" data-sticker="sweet" checked>
-                  <span>Sweet Doodles</span>
+                  <span>🌸 Bunga & Hati</span>
                 </label>
                 <label class="sticker-check">
                   <input type="checkbox" id="stickerSpark" data-sticker="spark" checked>
-                  <span>Spark Lines</span>
+                  <span>✨ Bintang & Kilau</span>
                 </label>
               </div>
             </div>
@@ -610,7 +635,9 @@
             </div>
             <div class="preview-actions">
               <div class="photo-slots" id="photoSlots" aria-label="Jumlah foto yang sudah diambil"></div>
-              <button class="btn btn-primary" id="downloadBoothBtn" type="button" disabled>Download Hasil</button>
+              <button class="btn btn-primary" id="downloadBoothBtn" type="button" disabled>
+                ⬇️ Download
+              </button>
             </div>
           </div>
         </div>
